@@ -5,8 +5,12 @@
 A ComfyUI node pack for [Maya1](https://huggingface.co/maya-research/maya1), a 3B-parameter speech model built for expressive voice generation with rich human emotion and precise voice design.
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-compatible-green.svg)
+
+<img width="1426" height="820" alt="{BC838DB2-5A85-4258-A6CD-F7607CCBD6D2}" src="https://github.com/user-attachments/assets/fbb48a04-7157-42a7-b77c-d091e6deb926" />
+
+
 
 ---
 

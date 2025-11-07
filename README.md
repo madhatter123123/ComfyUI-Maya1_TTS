@@ -8,7 +8,7 @@ A ComfyUI node pack for [Maya1](https://huggingface.co/maya-research/maya1), a 3
 ![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-compatible-green.svg)
 
-
+https://github.com/user-attachments/assets/1be0c2a0-22fb-4890-9147-d20abeb2e067
 
 
 ---
@@ -152,7 +152,7 @@ cd ComfyUI
 mkdir -p models/maya1-TTS
 
 # Download model
-huggingface-cli download maya-research/maya1 --local-dir models/maya1-TTS/maya1
+hf download maya-research/maya1 --local-dir models/maya1-TTS/maya1
 ```
 
 ### Option 2: Python Script
@@ -759,9 +759,6 @@ ComfyUI-Maya1_TTS/
 
 </details>
 
-
-
-https://github.com/user-attachments/assets/0a667f5b-f93a-4cc4-a0d5-030c6d9b1be7
 
 
 

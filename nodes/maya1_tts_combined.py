@@ -6,7 +6,8 @@ All-in-one node with model loading and TTS generation.
 import torch
 import numpy as np
 import random
-from typing import Tuple
+import re
+from typing import Tuple, List
 
 from ..core import (
     Maya1ModelLoader,
@@ -18,6 +19,88 @@ from ..core import (
     check_interruption,
     load_emotions_list
 )
+
+def split_text_smartly(text: str, max_words_per_chunk: int = 100) -> List[str]:
+    """
+    Split text into chunks at sentence boundaries, keeping emotion tags intact.
+    Improved to NEVER cut words mid-sentence.
+
+    Args:
+        text: Input text to split
+        max_words_per_chunk: Maximum words per chunk (default 100)
+
+    Returns:
+        List of text chunks
+    """
+    # Better sentence boundary detection that handles emotion tags
+    # Split on: . ! ? followed by whitespace (and optionally capital letter or end of string)
+    # This regex keeps the punctuation with the sentence
+    sentence_pattern = r'(?<=[.!?])\s+(?=[A-Z<]|$)'
+    sentences = re.split(sentence_pattern, text.strip())
+
+    # Clean up empty sentences
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    # Group sentences into chunks
+    chunks = []
+    current_chunk = []
+    current_word_count = 0
+
+    for sentence in sentences:
+        # Count words (emotion tags don't count as words)
+        # Remove emotion tags temporarily for word count
+        text_without_tags = re.sub(r'<[^>]+>', '', sentence)
+        word_count = len(text_without_tags.split())
+
+        # If single sentence exceeds max, split on commas or semicolons
+        if word_count > max_words_per_chunk:
+            # Split long sentence on commas, keeping punctuation
+            parts = re.split(r'(,\s+|;\s+)', sentence)
+
+            for i, part in enumerate(parts):
+                if not part.strip():
+                    continue
+
+                # For delimiters (commas/semicolons), add to previous chunk
+                if part.strip() in [',', ';']:
+                    if current_chunk:
+                        current_chunk[-1] += part
+                    continue
+
+                # Count words in this part
+                part_text = re.sub(r'<[^>]+>', '', part)
+                part_words = len(part_text.split())
+
+                if current_word_count + part_words > max_words_per_chunk and current_chunk:
+                    # Start new chunk
+                    chunks.append(''.join(current_chunk))
+                    current_chunk = [part]
+                    current_word_count = part_words
+                else:
+                    # Add to current chunk
+                    if current_chunk and not current_chunk[-1].endswith((' ', ',', ';')):
+                        current_chunk.append(' ')
+                    current_chunk.append(part)
+                    current_word_count += part_words
+        else:
+            # Normal sentence handling
+            if current_word_count + word_count > max_words_per_chunk and current_chunk:
+                # Save current chunk and start new one
+                chunks.append(''.join(current_chunk))
+                current_chunk = [sentence]
+                current_word_count = word_count
+            else:
+                # Add to current chunk with space
+                if current_chunk:
+                    current_chunk.append(' ')
+                current_chunk.append(sentence)
+                current_word_count += word_count
+
+    # Add remaining chunk
+    if current_chunk:
+        chunks.append(''.join(current_chunk))
+
+    return chunks if chunks else [text]
 
 
 class Maya1TTSCombinedNode:
@@ -33,49 +116,7 @@ class Maya1TTSCombinedNode:
     - VRAM management
     """
 
-    DESCRIPTION = """All-in-one Maya1 TTS: Load model and generate expressive speech.
-
-AVAILABLE EMOTION TAGS:
-<laugh>, <laugh_harder>, <giggle>, <chuckle>
-<cry>, <sigh>, <gasp>, <whisper>
-<angry>, <scream>, <snort>, <yawn>
-<cough>, <sneeze>, <breathing>, <humming>, <throat_clearing>
-
-USAGE EXAMPLES:
-• Hello! This is Maya1 <laugh> the best voice AI!
-• I'm so excited <gasp> to meet you!
-• This is amazing <whisper> don't tell anyone.
-
-VOICE DESCRIPTION:
-Use natural language to describe the voice characteristics:
-"Realistic male voice in the 30s with American accent. Warm timbre, conversational pacing."
-
-GENERATION TIPS:
-• Keep model in VRAM: Enable for faster repeated generations
-• Temperature 0.4: Good balance between quality and variety
-• Top-p 0.9: Recommended for natural speech
-• Seed: Use same seed for reproducible results
-
-MODEL SETTINGS:
-• Attention mechanisms:
-  - SDPA: Most compatible and fastest for TTS (default)
-  - Flash Attention 2: Faster for batch inference (requires flash-attn)
-  - Sage Attention: Memory efficient for long sequences (requires sageattention)
-
-• Data types (from lowest to highest memory):
-  - 4bit (BNB): NF4 quantization (~6GB VRAM, requires bitsandbytes, SLOWER than fp16/bf16)
-  - 8bit (BNB): INT8 quantization (~7GB VRAM, requires bitsandbytes, SLOWER than fp16/bf16)
-  - float16: 16-bit half precision (~8-9GB VRAM, FAST, good quality)
-  - bfloat16: 16-bit brain float (~8-9GB VRAM, FAST, recommended, best stability)
-  - float32: 32-bit full precision (~16GB VRAM, highest quality, slower)
-
-⚠️ IMPORTANT: Quantization (4bit/8bit) is SLOWER than fp16/bf16!
-   Only use quantization if you have limited VRAM (<10GB).
-   If you have 10GB+ VRAM, use float16 or bfloat16 for best speed.
-
-Note: Quantization requires CUDA and bitsandbytes: pip install bitsandbytes
-
-Output: 24kHz mono audio ready for ComfyUI audio nodes."""
+    DESCRIPTION = ""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -113,7 +154,7 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
                     "default": True
                 }),
                 "temperature": ("FLOAT", {
-                    "default": 0.4,
+                    "default": 0.4,  # Official Maya1 recommendation (from transformers_inference.py)
                     "min": 0.1,
                     "max": 2.0,
                     "step": 0.05
@@ -141,6 +182,14 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
                     "min": 0,
                     "max": 0xffffffffffffffff
                 }),
+                "chunk_longform": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Automatically split long text into chunks at sentence boundaries and combine audio"
+                }),
+                "debug_mode": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Show detailed console output (token IDs, generation stats) or just basics (seed, VRAM, progress)"
+                }),
             }
         }
 
@@ -163,6 +212,8 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
         max_tokens: int,
         repetition_penalty: float,
         seed: int,
+        chunk_longform: bool,
+        debug_mode: bool,
         emotion_tag_insert: str = "(none)"
     ) -> Tuple[dict]:
         """
@@ -215,7 +266,12 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
                 f"  {model_path}"
             )
 
-        # Validate that all critical files exist
+        # Check device availability
+        if device == "cuda" and not torch.cuda.is_available():
+            print("⚠️  CUDA not available, falling back to CPU")
+            device = "cpu"
+
+        # ========== MODEL LOADING ==========
         print(f"🔍 Validating model files in: {model_path}")
 
         critical_files = {
@@ -243,17 +299,10 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
                 f"    --local-dir {model_path}"
             )
 
-        # Check device availability
-        if device == "cuda" and not torch.cuda.is_available():
-            print("⚠️  CUDA not available, falling back to CPU")
-            device = "cpu"
-
         # Strip "(BNB)" suffix from dtype labels if present
-        # e.g., "4bit (BNB)" -> "4bit"
         dtype_clean = dtype.replace(" (BNB)", "")
 
         # Load model using the wrapper (with caching)
-        # Note: Model loading details are printed by Maya1ModelLoader.load_model()
         try:
             maya1_model = Maya1ModelLoader.load_model(
                 model_path=model_path,
@@ -280,23 +329,126 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
         print(f"Max tokens: {max_tokens}")
         print("=" * 70)
 
+        # ========== LONGFORM CHUNKING ==========
+        # Check if text should be chunked (enabled + text is reasonably long)
+        word_count = len(text.split())
+        if chunk_longform and word_count > 80:  # Only chunk if >80 words
+            print(f"📚 Longform mode enabled: {word_count} words detected")
+            print(f"🔪 Splitting text into chunks at sentence boundaries...")
+
+            # Calculate words per chunk based on max_tokens
+            # Empirical data: 1 word ≈ 50-55 SNAC tokens
+            # Leave some headroom (70%) to avoid exceeding max_tokens
+            estimated_words_per_chunk = int((max_tokens * 0.7) / 50)
+            estimated_words_per_chunk = max(50, min(estimated_words_per_chunk, 200))  # Clamp between 50-200
+
+            print(f"📏 Max tokens: {max_tokens} → ~{estimated_words_per_chunk} words per chunk")
+
+            text_chunks = split_text_smartly(text, max_words_per_chunk=estimated_words_per_chunk)
+            print(f"📦 Split into {len(text_chunks)} chunks")
+
+            all_audio_data = []
+            sample_rate = None
+
+            for i, chunk_text in enumerate(text_chunks):
+                print(f"\n{'=' * 70}")
+                print(f"🎤 Generating chunk {i + 1}/{len(text_chunks)}")
+                print(f"📝 Text: {chunk_text[:60]}...")
+                print(f"{'=' * 70}")
+
+                # Recursively call generate_speech for this chunk with chunk_longform=False
+                # to avoid infinite recursion
+                chunk_audio = self.generate_speech(
+                    model_name=model_name,
+                    dtype=dtype,
+                    attention_mechanism=attention_mechanism,
+                    device=device,
+                    voice_description=voice_description,
+                    text=chunk_text,
+                    keep_model_in_vram=True,  # Keep in VRAM between chunks
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    repetition_penalty=repetition_penalty,
+                    seed=actual_seed,  # Use same seed for all chunks
+                    chunk_longform=False,  # Disable chunking for recursive calls
+                    debug_mode=debug_mode,  # Pass debug mode through
+                    emotion_tag_insert=emotion_tag_insert
+                )
+
+                # Extract audio data (returns tuple, get first element)
+                chunk_audio_dict = chunk_audio[0]
+                chunk_waveform = chunk_audio_dict["waveform"]
+                sample_rate = chunk_audio_dict["sample_rate"]
+                all_audio_data.append(chunk_waveform)
+
+                check_interruption()
+
+            print(f"\n{'=' * 70}")
+            print(f"🔗 Concatenating {len(all_audio_data)} audio chunks...")
+
+            # Concatenate all audio chunks along time dimension (axis=2 or -1)
+            # Audio shape: [batch, channels, samples] -> concatenate on samples axis
+            combined_waveform_np = np.concatenate(all_audio_data, axis=-1)
+
+            # Convert to torch tensor (ComfyUI expects torch tensors with .cpu() method)
+            combined_waveform = torch.from_numpy(combined_waveform_np)
+
+            print(f"✅ Generated {combined_waveform.shape[-1] / sample_rate:.2f}s of audio from {len(text_chunks)} chunks")
+            print("=" * 70)
+
+            # Handle VRAM cleanup if requested
+            if not keep_model_in_vram:
+                Maya1ModelLoader.clear_cache(force=True)
+                print("🗑️  Model cleared from VRAM")
+
+            return ({
+                "waveform": combined_waveform,
+                "sample_rate": sample_rate
+            },)
+
+        # ========== SINGLE GENERATION (NO CHUNKING) ==========
         # Set seed for reproducibility
         torch.manual_seed(actual_seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(actual_seed)
 
-        # Format prompt using Maya1's documented format
-        # DO NOT use chat template - it adds system messages that get spoken!
-        print("🔤 Formatting prompt...")
+        # Format prompt using Maya1's OFFICIAL format (from transformers_inference.py)
+        print("🔤 Formatting prompt with control tokens...")
 
-        # Maya1's format from documentation: <description="..."> text_with_emotions
-        prompt = f'<description="{voice_description}"> {text}'
+        # Official Maya1 control token IDs
+        SOH_ID = 128259  # Start of Header
+        EOH_ID = 128260  # End of Header
+        SOA_ID = 128261  # Start of Audio
+        CODE_START_TOKEN_ID = 128257  # Start of Speech codes
+        TEXT_EOT_ID = 128009  # End of Text
+
+        # Decode control tokens
+        soh_token = maya1_model.tokenizer.decode([SOH_ID])
+        eoh_token = maya1_model.tokenizer.decode([EOH_ID])
+        soa_token = maya1_model.tokenizer.decode([SOA_ID])
+        sos_token = maya1_model.tokenizer.decode([CODE_START_TOKEN_ID])
+        eot_token = maya1_model.tokenizer.decode([TEXT_EOT_ID])
+        bos_token = maya1_model.tokenizer.bos_token
+
+        # Build formatted text
+        formatted_text = f'<description="{voice_description}"> {text}'
+
+        # Construct full prompt with all control tokens (CRITICAL for avoiding garbling!)
+        prompt = (
+            soh_token + bos_token + formatted_text + eot_token +
+            eoh_token + soa_token + sos_token
+        )
 
         # Debug: Print formatted prompt
-        print(f"📝 Prompt: {prompt[:150]}...")
+        print(f"📝 Formatted text: {formatted_text[:100]}...")
+        print(f"📝 Full prompt preview (first 200 chars): {repr(prompt[:200])}...")
 
         # Tokenize input
-        inputs = maya1_model.tokenizer(prompt, return_tensors="pt")
+        inputs = maya1_model.tokenizer(
+            prompt,
+            return_tensors="pt"
+        )
         print(f"📊 Input token count: {inputs['input_ids'].shape[1]}")
 
         # Move to device
@@ -382,13 +534,13 @@ Output: 24kHz mono audio ready for ComfyUI audio nodes."""
                 outputs = maya1_model.model.generate(
                     **inputs,
                     max_new_tokens=max_tokens,
-                    min_new_tokens=50,  # Force at least 50 tokens to get past text phase
+                    min_new_tokens=28,  # At least 4 SNAC frames (4 frames × 7 tokens = 28)
                     temperature=temperature,
                     top_p=top_p,
                     do_sample=True,
                     repetition_penalty=repetition_penalty,
-                    pad_token_id=128263,  # From generation_config.json
-                    eos_token_id=128258,  # ONLY stop on SNAC completion token, NOT 128009!
+                    pad_token_id=maya1_model.tokenizer.pad_token_id,
+                    eos_token_id=128258,  # CODE_END_TOKEN_ID - Stop at end of speech
                     stopping_criteria=stopping_criteria,
                     use_cache=True,  # Enable KV cache for faster generation
                 )

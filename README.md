@@ -21,7 +21,6 @@ https://github.com/user-attachments/assets/1be0c2a0-22fb-4890-9147-d20abeb2e067
 - ⚡ **Real-time Generation** with SNAC neural codec (24kHz audio)
 - 🔧 **Multiple Attention Mechanisms**: SDPA, Flash Attention 2, Sage Attention
 - 💾 **Quantization Support**: 4-bit and 8-bit for memory-constrained GPUs (bitsandbytes)
-- 📦 **GGUF Model Support**: Lightweight quantized models (just `pip install gguf` - no compilation!)
 - 🛑 **Native ComfyUI Cancel**: Stop generation anytime
 - 📊 **Progress Tracking**: Real-time token generation speed (it/s)
 - 🔄 **Model Caching**: Fast subsequent generations
@@ -31,13 +30,12 @@ https://github.com/user-attachments/assets/1be0c2a0-22fb-4890-9147-d20abeb2e067
 - 🎨 **Beautiful Dark Theme** with purple accents and smooth animations
 - 👤 **5 Character Presets**: Quick-load voice templates (Male US, Female UK, Announcer, Robot, Demon)
 - 🎭 **16 Visual Emotion Buttons**: One-click emotion tag insertion at cursor position
-- ⛶ **Professional HTML Modal Editor**: Fullscreen text editor with native textarea for longform content
+- ⛶ **HTML Modal Editor**: Fullscreen text editor with native textarea for longform content
 - 🔤 **Font Size Controls**: Adjustable 12-20px font size with visual slider
-- ⌨️ **Advanced Keyboard Shortcuts**: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Enter to save, ESC to cancel
+- ⌨️ **Keyboard Shortcuts**:Ctrl+Enter to save, ESC to cancel
 - 🔔 **Toast Notifications**: Visual feedback for save success and validation errors
 - 📝 **Inline Text Editing**: Click-to-edit with cursor positioning and drag-to-select
-- 🖱️ **Scroll Support**: Custom themed scrollbars with mouse wheel scrolling
-- 📱 **Responsive Design**: Modal adapts to all screen sizes
+- 📱 **Responsive Design**: Modal adapts to most screen sizes
 - 💡 **Contextual Tooltips**: Helpful hints on every control
 - 🎬 **Collapsible Sections**: Clean, organized interface
 - 🔄 **Smart Audio Processing**: Auto-chunking for long text with crossfade blending for seamless output
@@ -82,8 +80,8 @@ pip install bitsandbytes>=0.41.0
 ```
 
 **Memory savings:**
-- 4-bit: ~6GB → ~3GB VRAM (slight quality loss)
-- 8-bit: ~6GB → ~4GB VRAM (minimal quality loss)
+- 4-bit BNB: ~6GB → ~3GB VRAM (quality loss)
+- 8-bit BNB: ~6GB → ~4GB VRAM (slight quality loss)
 
 ### Accelerated Attention
 
@@ -193,7 +191,7 @@ Restart ComfyUI to load the new nodes. The node will appear under:
 
 ### Node: Maya1 TTS (AIO)
 
-All-in-one node for loading models and generating speech with a beautiful custom canvas UI.
+All-in-one node for loading models and generating speech with custom canvas UI.
 
 <img width="615" height="1121" alt="Screenshot 2025-11-07 084153" src="https://github.com/user-attachments/assets/19105cc2-030a-40e3-b4d9-e18bd6d50b65" />
 

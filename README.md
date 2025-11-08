@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/1be0c2a0-22fb-4890-9147-d20abeb2e067
 - 😊 **16 Emotion Tags**: laugh, cry, whisper, angry, sigh, gasp, scream, and more
 - ⚡ **Real-time Generation** with SNAC neural codec (24kHz audio)
 - 🔧 **Multiple Attention Mechanisms**: SDPA, Flash Attention 2, Sage Attention
-- 💾 **Quantization Support**: 4-bit and 8-bit for memory-constrained GPUs
+- 💾 **Quantization Support**: 4-bit and 8-bit for memory-constrained GPUs (bitsandbytes)
 - 📦 **GGUF Model Support**: Lightweight quantized models (just `pip install gguf` - no compilation!)
 - 🛑 **Native ComfyUI Cancel**: Stop generation anytime
 - 📊 **Progress Tracking**: Real-time token generation speed (it/s)

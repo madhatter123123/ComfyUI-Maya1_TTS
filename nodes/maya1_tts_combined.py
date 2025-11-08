@@ -167,7 +167,7 @@ class Maya1TTSCombinedNode:
                     "step": 0.05
                 }),
                 "max_tokens": ("INT", {
-                    "default": 4000,
+                    "default": 2000,
                     "min": 100,
                     "max": 16000,
                     "step": 100,

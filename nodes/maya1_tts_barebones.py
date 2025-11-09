@@ -131,65 +131,76 @@ class Maya1TTSBarebonesNode:
                 "voice_description": ("STRING", {
                     "multiline": True,
                     "default": "Realistic male voice in the 30s age with american accent. Normal pitch, warm timbre, conversational pacing.",
-                    "dynamicPrompts": False
+                    "dynamicPrompts": False,
+                    "tooltip": "Describe your desired voice using natural language. Include: age (20s-50s), gender (male/female), accent (American/British/etc), pitch (low/normal/high), timbre (warm/gravelly/smooth), pacing (fast/conversational/slow), tone (happy/calm/energetic)"
                 }),
                 "text": ("STRING", {
                     "multiline": True,
                     "default": "Hello! This is Maya1 <laugh> the best open source voice AI model with emotions.",
-                    "dynamicPrompts": False
+                    "dynamicPrompts": False,
+                    "tooltip": "Your script text to synthesize. Add emotion tags like <laugh>, <cry>, <whisper>, <angry>, <gasp>, <sigh> anywhere in the text. Type tags manually (no visual buttons in barebones mode)"
                 }),
 
                 # Model settings
                 "model_name": (discover_maya1_models(), {
-                    "default": discover_maya1_models()[0] if discover_maya1_models() else None
+                    "default": discover_maya1_models()[0] if discover_maya1_models() else None,
+                    "tooltip": "Select Maya1 model from ComfyUI/models/maya1-TTS/ folder. Models are auto-discovered on startup. Download from: huggingface.co/maya-research/maya1"
                 }),
                 "dtype": (["4bit (BNB)", "8bit (BNB)", "float16", "bfloat16", "float32"], {
-                    "default": "bfloat16"
+                    "default": "bfloat16",
+                    "tooltip": "Model precision. 4bit/8bit save VRAM but are SLOWER. Use float16/bfloat16 if you have 10GB+ VRAM for best speed. 4bit≈6GB, 8bit≈7GB, float16/bfloat16≈8-9GB, float32≈16GB"
                 }),
                 "attention_mechanism": (["sdpa", "flash_attention_2", "sage_attention"], {
-                    "default": "sdpa"
+                    "default": "sdpa",
+                    "tooltip": "Attention algorithm. SDPA (default) is fastest for single TTS. Flash Attention 2 helps with batch processing. Sage Attention is memory efficient. Stick with SDPA unless you know what you're doing"
                 }),
                 "device": (["cuda", "cpu"], {
-                    "default": "cuda"
+                    "default": "cuda",
+                    "tooltip": "Processing device. CUDA (GPU) is recommended for speed. CPU works but is much slower. Will auto-fallback to CPU if CUDA unavailable"
                 }),
 
                 # Generation settings
                 "keep_model_in_vram": ("BOOLEAN", {
-                    "default": True
+                    "default": True,
+                    "tooltip": "Keep model loaded in VRAM after generation. True = faster repeated generations but uses VRAM. False = frees VRAM after each generation but slower"
                 }),
                 "chunk_longform": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "Split long text into chunks at sentence boundaries with smooth crossfading. Enables unlimited audio length beyond the 18-20s limit"
+                    "tooltip": "Split long text into chunks at sentence boundaries with smooth crossfading. Enables unlimited audio length beyond the 18-20s limit. EXPERIMENTAL - may have quality/timing issues"
                 }),
                 "max_tokens": ("INT", {
                     "default": 4000,
                     "min": 100,
                     "max": 16000,
                     "step": 100,
-                    "tooltip": "Max SNAC tokens per chunk. Higher = longer audio per chunk (~50 tokens/word). 4000 tokens ≈ 30-40s audio"
+                    "tooltip": "Max SNAC tokens per chunk. Higher = longer audio per chunk (~50 tokens/word). 4000 tokens ≈ 30-40s audio. Increase if audio cuts off too early"
                 }),
                 "temperature": ("FLOAT", {
                     "default": 0.4,
                     "min": 0.1,
                     "max": 2.0,
-                    "step": 0.05
+                    "step": 0.05,
+                    "tooltip": "Controls randomness/creativity. Lower (0.1-0.3) = more consistent/predictable. Higher (0.5-1.0) = more varied/creative. 0.4 is official Maya1 recommendation"
                 }),
                 "top_p": ("FLOAT", {
                     "default": 0.9,
                     "min": 0.1,
                     "max": 1.0,
-                    "step": 0.05
+                    "step": 0.05,
+                    "tooltip": "Nucleus sampling - controls diversity of token selection. 0.9 (default) works well for natural speech. Lower = more focused, higher = more diverse. Keep at 0.9 unless experimenting"
                 }),
                 "repetition_penalty": ("FLOAT", {
                     "default": 1.1,
                     "min": 1.0,
                     "max": 2.0,
-                    "step": 0.05
+                    "step": 0.05,
+                    "tooltip": "Reduces repetitive speech patterns. 1.0 = no penalty, higher = stronger penalty against repetition. 1.1 is a good default. Increase to 1.2-1.3 if speech sounds too repetitive"
                 }),
                 "seed": ("INT", {
                     "default": 0,
                     "min": 0,
-                    "max": 0xffffffffffffffff
+                    "max": 0xffffffffffffffff,
+                    "tooltip": "Random seed for reproducibility. 0 = random seed each time. Set specific number (1-999999) for same result every time. Use control_after_generate widget to auto-increment/randomize"
                 }),
             },
             "hidden": {

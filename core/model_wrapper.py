@@ -6,6 +6,7 @@ Supports multiple attention mechanisms: SDPA, Flash Attention 2, Sage Attention.
 import torch
 from pathlib import Path
 from typing import Optional, Dict, Any
+import gc
 
 
 class Maya1Model:
@@ -69,15 +70,24 @@ class Maya1ModelLoader:
         Returns:
             Maya1Model wrapper with model and tokenizer
         """
-        # Check if dtype changed from cached model
-        # If dtype changed, clear cache to reload with new dtype
+        # Check if dtype OR attention changed from cached model
+        # If either changed, clear cache to reload with new settings
         model_path_str = str(model_path)
         for cached_key, cached_model in list(cls._model_cache.items()):
-            if model_path_str in cached_key and cached_model.dtype != dtype:
-                print(f"🔄 Dtype changed from {cached_model.dtype} to {dtype}")
-                print(f"   Clearing cache to reload model...")
-                cls.clear_cache(force=True)
-                break
+            if model_path_str in cached_key:
+                dtype_changed = cached_model.dtype != dtype
+                attention_changed = cached_model.attention_type != attention_type
+
+                if dtype_changed or attention_changed:
+                    if dtype_changed:
+                        print(f"🔄 Dtype changed: {cached_model.dtype} → {dtype}")
+                    if attention_changed:
+                        print(f"🔄 Attention changed: {cached_model.attention_type} → {attention_type}")
+
+                    print(f"🗑️  Clearing VRAM and reloading model with new settings...")
+                    cls.clear_cache(force=True)
+                    print(f"✅ VRAM cleared, loading fresh model...")
+                    break
 
         # Check cache
         cache_key = cls._get_cache_key(str(model_path), attention_type, dtype)
@@ -349,23 +359,54 @@ class Maya1ModelLoader:
 
     @classmethod
     def clear_cache(cls, force: bool = False):
-        """Clear the model cache and free VRAM."""
+        """
+        Clear the model cache and free VRAM using ComfyUI's native memory management.
+        This actually removes models from VRAM, not just moves them to CPU.
+        """
         if not cls._model_cache:
             return  # Nothing to clear
 
-        # Move all cached models to CPU before clearing
-        for cache_key, maya1_model in cls._model_cache.items():
-            try:
-                if maya1_model.model is not None:
-                    maya1_model.model.to("cpu")
-            except Exception as e:
-                print(f"   ⚠ Warning: Failed to move {maya1_model.model_name} to CPU: {e}")
+        try:
+            # Import ComfyUI's model management
+            import comfy.model_management as mm
 
-        # Clear the cache
-        cls._model_cache.clear()
+            # Step 1: Delete model references from our cache
+            # This removes the Python references to the models
+            for cache_key, maya1_model in list(cls._model_cache.items()):
+                try:
+                    # Delete the model object to free references
+                    if maya1_model.model is not None:
+                        del maya1_model.model
+                    if maya1_model.tokenizer is not None:
+                        del maya1_model.tokenizer
+                except Exception as e:
+                    print(f"   ⚠ Warning: Failed to delete {maya1_model.model_name}: {e}")
 
-        # Force garbage collection and clear CUDA cache
-        import gc
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            # Step 2: Clear our cache dictionary
+            cls._model_cache.clear()
+
+            # Step 3: Use ComfyUI's native VRAM cleanup
+            # This unloads ALL models from VRAM (including ours)
+            mm.unload_all_models()
+
+            # Step 4: Clear ComfyUI's internal cache
+            mm.soft_empty_cache()
+
+            # Step 5: Python garbage collection
+            gc.collect()
+
+            # Step 6: Clear CUDA caches
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+
+        except ImportError:
+            # Fallback if comfy.model_management is not available
+            print("   ⚠ Warning: ComfyUI model_management not available, using fallback cleanup")
+
+            # Fallback: Just clear the cache and force GC
+            cls._model_cache.clear()
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()

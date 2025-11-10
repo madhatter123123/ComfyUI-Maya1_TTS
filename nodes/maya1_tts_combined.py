@@ -161,7 +161,7 @@ class Maya1TTSCombinedNode:
                 "dtype": (["4bit (BNB)", "8bit (BNB)", "float16", "bfloat16", "float32"], {
                     "default": "bfloat16"
                 }),
-                "attention_mechanism": (["sdpa", "flash_attention_2", "sage_attention"], {
+                "attention_mechanism": (["sdpa", "eager", "flash_attention_2", "sage_attention"], {
                     "default": "sdpa"
                 }),
                 "device": (["cuda", "cpu"], {

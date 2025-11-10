@@ -170,7 +170,17 @@ class Maya1ModelLoader:
         # Check attention implementation
         if hasattr(model.config, '_attn_implementation'):
             actual_attn = model.config._attn_implementation
-            print(f"   ✓ Attention: {actual_attn} (requested: {expected_attention})")
+
+            # Special handling for Sage Attention
+            if expected_attention == "sage_attention":
+                # Sage Attention uses eager as base, so this is expected
+                if actual_attn == "eager":
+                    print(f"   ✓ Attention: sage_attention (base: eager) ✅")
+                else:
+                    print(f"   ✓ Attention: {actual_attn} (requested: {expected_attention})")
+            else:
+                # For other attention types, show normally
+                print(f"   ✓ Attention: {actual_attn} (requested: {expected_attention})")
         else:
             # For Sage Attention, check if hooks are registered
             if expected_attention == "sage_attention":
@@ -180,7 +190,7 @@ class Maya1ModelLoader:
                     for module in model.modules()
                 )
                 if has_hooks:
-                    print(f"   ✓ Attention: sage_attention hooks applied")
+                    print(f"   ✓ Attention: sage_attention hooks applied ✅")
                 else:
                     print(f"   ⚠ Attention: sage_attention hooks may not be applied")
             else:

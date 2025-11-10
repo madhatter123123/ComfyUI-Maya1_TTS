@@ -496,7 +496,9 @@ class Maya1TTSBarebonesNode:
 
             # Handle VRAM cleanup if requested
             if not keep_model_in_vram:
-                self.cleanup_vram()
+                print("🗑️  Offloading model from VRAM...")
+                Maya1ModelLoader.clear_cache(force=True)
+                print("✅ Model offloaded from VRAM")
 
             return ({
                 "waveform": combined_waveform,
@@ -712,7 +714,9 @@ class Maya1TTSBarebonesNode:
 
             # Handle VRAM management based on toggle
             if not keep_model_in_vram:
-                self.cleanup_vram()
+                print("🗑️  Offloading model from VRAM...")
+                Maya1ModelLoader.clear_cache(force=True)
+                print("✅ Model offloaded from VRAM")
             else:
                 print("💾 Model kept in VRAM for faster next generation")
 
